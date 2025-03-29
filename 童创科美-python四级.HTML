@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>三级模拟考试答案校验系统</title>
+    <style>
+        body { max-width: 800px; margin: 20px auto; padding: 20px; }
+        .card { border: 1px solid #ddd; padding: 20px; margin: 10px 0; }
+        input { width: 300px; padding: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .correct { background-color: #e6ffe6; color: #2ecc71; }
+        .wrong { background-color: #ffe6e6; color: #e74c3c; }
+        #scoreDisplay { color: #2c3e50; font-weight: bold; margin-left: 15px; }
+        button:disabled { background-color: #eee; cursor: not-allowed; }
+        #examList button { display: block; margin: 10px 0; padding: 10px; width: 100%; }
+    </style>
+</head>
+<body>
+    <!-- Test Selection Page -->
+    <div id="examSelection" class="card">
+        <h1>------童创科美------</h1>
+		<h1>(python四级)考试系统</h1>
+        <div id="examList"></div>
+    </div>
+
+    <!-- Answer Card Page -->
+    <div id="answerCard" class="card" style="display: none;">
+        <h1>考试答题卡</h1>
+
+        <!-- Choice Questions Section -->
+        <div>
+            <h3>选择题（答案示例：ABCDABCDAB）</h3>
+            <div>
+                共 <span id="choiceCount">0</span> 题，
+                <input type="text" id="choiceInput" placeholder="请输入选择题答案" 
+                    oninput="this.value = this.value.toUpperCase()">
+            </div>
+        </div>
+
+        <!-- Judgment Questions Section -->
+        <div style="margin-top: 20px;">
+            <h3>判断题（答案示例：01010）0代表错误</h3>
+            <div>
+                共 <span id="judgeCount">0</span> 题，
+                <input type="text" id="judgeInput" placeholder="请输入判断题答案" 
+                    oninput="this.value = this.value.replace(/[^01]/g, '')">
+            </div>
+        </div>
+
+        <!-- Operation Area -->
+        <div style="margin-top: 20px;">
+            <button onclick="checkAnswers()" id="submitBtn">提交答案</button>
+            <span id="scoreDisplay"></span>
+        </div>
+
+        <div id="resultArea" style="display: none;">
+            <h3>作答详情：</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>题号</th>
+                        <th>正确答案</th>
+                        <th>考生答案</th>
+                        <th>对比结果</th>
+                    </tr>
+                </thead>
+                <tbody id="resultBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+       <script>
+        // Test Data
+        const exams = [
+			{
+                name: "2024-03python四级(真题)",
+                paperLink: "https://i1pg678nx3r.feishu.cn/file/DhN1bMo5Ro5dzfxBjEPcPxpWnNJ",
+                choiceAnswers: " CCDDDCABCDDBDAA",
+                judgeAnswers: "1100111011",
+                analysisLink: "https://i1pg678nx3r.feishu.cn/file/PlJvbR7keoo8DbxvZBKcK5SbnKd"
+            },
+            {
+                name: "2024-06python四级(真题)",
+                paperLink: "https://i1pg678nx3r.feishu.cn/file/ZFQ6b1V4sozUPRxc1qwc5RhJnDf",
+                choiceAnswers: " CBCDCAAADADDBBD",
+                judgeAnswers: "1110100011",
+                analysisLink: "https://i1pg678nx3r.feishu.cn/file/EC0xbuCzKoRqV8xTZv5cZYsRn7e"
+            },
+            {
+                name: "2024-09python四级(真题)",
+                paperLink: "https://i1pg678nx3r.feishu.cn/file/HqtGblbGMomdxSxMb6OcNg9ZnFg",
+                choiceAnswers: "ACCDABAACDCCDBA",
+                judgeAnswers: "1001100110",
+                analysisLink: "https://i1pg678nx3r.feishu.cn/file/ROwRbqkeSofVNwxXlWicrH6Cnhc"
+            },
+            {
+                name: "2024-12python四级(真题)",
+                paperLink: "https://i1pg678nx3r.feishu.cn/file/ZAlJbyS8goQPzPx6TAEcsWKmnXd",
+                choiceAnswers: " CADCACDCBABADBA",
+                judgeAnswers: "1010110101",
+                analysisLink: "https://i1pg678nx3r.feishu.cn/file/LFvmbRlpmo4uukx35NgcvhMTn0d"
+            },
+            {
+                name: "2025-03python四级(真题)",
+                paperLink: "https://i1pg678nx3r.feishu.cn/file/W2WXbltdsoMRoRxzC8AcQeg0nMb",
+                choiceAnswers: "DCBCDCAADBDACBC",
+                judgeAnswers: "1110110111",
+                analysisLink: "https://i1pg678nx3r.feishu.cn/file/RHVJbDnQvo2kfgx2lFvcQYQ8nmb"
+            },
+        ];
+
+        let currentExam = null;
+
+        // Generate Test Selection List
+        function generateExamList() {
+            const examList = document.getElementById('examList');
+            exams.forEach((exam, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = exam.name;
+                btn.onclick = () => selectExam(index);
+                examList.appendChild(btn);
+            });
+        }
+
+        // Select a Test
+        function selectExam(index) {
+            currentExam = exams[index];
+            document.getElementById('examSelection').style.display = 'none';
+            document.getElementById('answerCard').style.display = 'block';
+            initQuestionCount();
+            window.open(currentExam.paperLink, '_blank'); // Open test paper link
+        }
+
+        // Initialize Question Counts
+        function initQuestionCount() {
+            document.getElementById('choiceCount').textContent = currentExam.choiceAnswers.length;
+            document.getElementById('judgeCount').textContent = currentExam.judgeAnswers.length;
+            document.getElementById('choiceInput').setAttribute('maxlength', currentExam.choiceAnswers.length);
+            document.getElementById('judgeInput').setAttribute('maxlength', currentExam.judgeAnswers.length);
+        }
+
+        // Check Answers
+        function checkAnswers() {
+            const choiceInput = document.getElementById('choiceInput').value.trim().toUpperCase();
+            const judgeInput = document.getElementById('judgeInput').value.trim();
+            
+            if (!validateInput(choiceInput, judgeInput)) return;
+            
+            lockInterface();
+            
+            const { resultHTML, correctCount } = processAnswers(choiceInput, judgeInput);
+            
+            showResult(resultHTML, correctCount);
+            
+            // Add "View Analysis" Button
+            const analysisBtn = document.createElement('button');
+            analysisBtn.textContent = '查看解析';
+            analysisBtn.style.marginLeft = '10px';
+            analysisBtn.onclick = () => window.open(currentExam.analysisLink, '_blank');
+            document.getElementById('scoreDisplay').appendChild(analysisBtn);
+        }
+
+        // Validate Input
+        function validateInput(choice, judge) {
+            if (choice.length !== currentExam.choiceAnswers.length || judge.length !== currentExam.judgeAnswers.length) {
+                alert(`答案数量不正确！
+选择题需要 ${currentExam.choiceAnswers.length} 个答案（当前：${choice.length}）
+判断题需要 ${currentExam.judgeAnswers.length} 个答案（当前：${judge.length}）`);
+                return false;
+            }
+            return true;
+        }
+
+        // Lock Interface
+        function lockInterface() {
+            document.getElementById('choiceInput').disabled = true;
+            document.getElementById('judgeInput').disabled = true;
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = '已提交';
+        }
+
+        // Process Answers
+        function processAnswers(choiceInput, judgeInput) {
+            let correctCount = 0;
+            let resultHTML = '';
+
+            // Process Choice Questions
+            for (let i = 0; i < currentExam.choiceAnswers.length; i++) {
+                const res = compareAnswer(i + 1, currentExam.choiceAnswers[i], choiceInput[i]);
+                resultHTML += res.html;
+                correctCount += res.isCorrect ? 1 : 0;
+            }
+
+            // Process Judgment Questions
+            for (let i = 0; i < currentExam.judgeAnswers.length; i++) {
+                const qNumber = currentExam.choiceAnswers.length + i + 1;
+                const res = compareAnswer(qNumber, currentExam.judgeAnswers[i], judgeInput[i]);
+                resultHTML += res.html;
+                correctCount += res.isCorrect ? 1 : 0;
+            }
+
+            return { resultHTML, correctCount };
+        }
+
+        // Compare Individual Answer
+        function compareAnswer(qNum, correct, user) {
+            const isCorrect = correct === user;
+            return {
+                html: `<tr class="${isCorrect ? 'correct' : 'wrong'}">
+                    <td>${qNum}</td>
+                    <td>${correct}</td>
+                    <td>${user || '-'}</td>
+                    <td>${isCorrect ? '✓' : '✗'}</td>
+                </tr>`,
+                isCorrect
+            };
+        }
+
+        // Show Result
+        function showResult(html, correctCount) {
+            const totalQuestions = currentExam.choiceAnswers.length + currentExam.judgeAnswers.length;
+            const score = ((correctCount / totalQuestions) * 50).toFixed(1);
+            
+            document.getElementById('resultBody').innerHTML = html;
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('scoreDisplay').innerHTML = `当前得分：${score}分（总分50）`;
+        }
+
+        // Initialize Test Selection Page
+        generateExamList();
+    </script>
+</body>
+</html>
